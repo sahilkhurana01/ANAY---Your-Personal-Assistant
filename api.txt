@@ -1,2 +1,0 @@
-Deepgram = 33c449a8b30f8b908c0e8d559bc5b99c3f631c4c
-Eleven Labs = sk_f0e78e295b27bd12d1aee99bd30dc51a85e55455f66e4467
