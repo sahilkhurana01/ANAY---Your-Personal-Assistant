@@ -339,30 +339,36 @@ class WebSocketManager:
                     logger.info("[OK] Sent user_message")
                     
                     # CRITICAL: Try to execute task FIRST (Action-First AI)
+                    # BUT: Skip task planning for special commands like /start
                     planner = None
                     task_executed = False
                     task_result = ""
                     
-                    try:
-                        from automation.task_planner import TaskPlanner
-                        planner = TaskPlanner(llm_client=active_llm)
-                        logger.info("[EXEC] Attempting to execute task...")
-                        
-                        # execute_plan is async, so await it directly (not with to_thread)
-                        task_result = await planner.execute_plan(transcript)
-                        
-                        if task_result and task_result != "NO_ACTION_REQUIRED":
-                            task_executed = True
-                            logger.info(f"[OK] Task executed: {task_result}")
-                            ai_response = task_result  # Use task result as response
-                        else:
-                            logger.info("[INFO] No action required, generating conversational response")
-                            task_executed = False
-                    except Exception as e:
-                        logger.error(f"Task execution failed: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
+                    # Skip task planning for special commands
+                    if transcript.strip().lower() in ["/start", "/hello", "/hi"]:
+                        logger.info(f"[SKIP] Special command detected, skipping task planner: {transcript}")
                         task_executed = False
+                    else:
+                        try:
+                            from automation.task_planner import TaskPlanner
+                            planner = TaskPlanner(llm_client=active_llm)
+                            logger.info("[EXEC] Attempting to execute task...")
+                            
+                            # execute_plan is async, so await it directly (not with to_thread)
+                            task_result = await planner.execute_plan(transcript)
+                            
+                            if task_result and task_result != "NO_ACTION_REQUIRED":
+                                task_executed = True
+                                logger.info(f"[OK] Task executed: {task_result}")
+                                ai_response = task_result  # Use task result as response
+                            else:
+                                logger.info("[INFO] No action required, generating conversational response")
+                                task_executed = False
+                        except Exception as e:
+                            logger.error(f"Task execution failed: {e}")
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            task_executed = False
                     
                     # Generate AI response only if no task was executed
                     if not task_executed:

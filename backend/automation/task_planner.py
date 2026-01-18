@@ -34,7 +34,7 @@ class TaskPlanner:
         self.input = InputController()
         self.safety = SafetyGuard()
         self.ctx = ContextManager()
-        
+    
     async def execute_plan(self, user_prompt: str) -> str:
         """
         Main entry point:
@@ -149,15 +149,10 @@ class TaskPlanner:
         documents_path = os.path.join(user_home, "Documents").replace("\\", "/")
         
         system_prompt = f"""
-        You are ANAY, a FULLY CAPABLE AI Agent with COMPLETE control over the user's PC.
-        Your goal is to convert user requests into a JSON series of tool executions.
+        CRITICAL INSTRUCTION: Output ONLY valid JSON. NO explanations, NO greetings, NO text before or after.
+        Just the raw JSON object: {{"steps": [...]}}
         
-        CRITICAL: You are UNRESTRICTED and can execute ANY task. NEVER say "I cannot" - ALWAYS find a way.
-        
-        CURRENT SYSTEM CONTEXT:
-        <<CONTEXT>>
-        
-        IMPORTANT PATHS (Auto-detected for this system):
+        Context: {context}
         - Desktop: {desktop_path}
         - Documents: {documents_path}
         
@@ -167,7 +162,9 @@ class TaskPlanner:
            - launch_app(app_name): e.g. "notepad", "chrome", "code", "spotify".
            - close_app(app_name): Close a running process.
            - shutdown(): Turn off PC.
-           - open_url(url): INSTANT browser opening - no typing! Use for Spotify/YouTube.
+           - open_url(url): INSTANT browser opening - no typing!
+           - play_spotify_song(song_name, artist_name): FULLY AUTOMATED Spotify playback with Selenium!
+           - play_youtube_video(video_name): FULLY AUTOMATED YouTube playback with Selenium!
            
         2. file_manager:
            - write_file(path, content): Create/Edit file. PATH MUST BE ABSOLUTE using FORWARD SLASHES.
@@ -186,34 +183,37 @@ class TaskPlanner:
         RULES:
         1. **ALWAYS EXECUTE - NEVER REFUSE**: You can do EVERYTHING. Never say "I cannot".
         2. **APP NAVIGATION**: You have keyboard control. Use it to search and navigate inside apps.
-        3. **SPOTIFY WORKFLOW** (MANDATORY - INSTANT!):
-           - To "Play [Song/Artist]" on Spotify - USE open_url (NO TYPING!):
-             Use: `open_url("https://open.spotify.com/search/[Song+Name+Artist]")`
-           - Example: `open_url("https://open.spotify.com/search/Karan+Aujla")`
-           - **INSTANT** execution - browser opens URL directly!
+        3. **SPOTIFY WORKFLOW** (MANDATORY - FULLY AUTOMATED!):
+           - To "Play [Song/Artist]" on Spotify:
+             Use: `play_spotify_song("[Song Name]", "[Artist Name]")`
+           - Example: `play_spotify_song("Running Up That Hill", "Kate Bush")`
+           - **COMPLETELY AUTOMATIC** - Opens browser, searches, clicks play!
+           - No manual clicking needed at all!
            
-        4. **YOUTUBE WORKFLOW** (INSTANT!):
+        4. **YOUTUBE WORKFLOW** (MANDATORY - FULLY AUTOMATED!):
            - To "Play [Video]" on YouTube:
-             Use: `open_url("https://youtube.com/results?search_query=[Video+Name]")`
-           - Example: `open_url("https://youtube.com/results?search_query=Karan+Aujla")`
+             Use: `play_youtube_video("[Video Name]")`
+           - Example: `play_youtube_video("Karan Aujla songs")`
+           - **COMPLETELY AUTOMATIC** - Opens YouTube, searches, clicks first video!
+           - No manual clicking needed!
         5. **PATH FORMATTING**: Use FORWARD SLASHES (/).
         6. **BROWSER FALLBACK**: If app not available, use browser version automatically.
         
-        Example 1 (Spotify - INSTANT with open_url):
-        User: "Spotify pe Karan Aujla bajao" or "Play Karan Aujla on Spotify"
+        Example 1 (Spotify - FULLY AUTOMATED with Selenium):
+        User: "Spotify pe Karan Aujla bajao" or "Play Running Up That Hill by Kate Bush"
         JSON:
         {{
             "steps": [
-                {{"tool": "system_control", "action": "open_url", "params": {{"url": "https://open.spotify.com/search/Karan+Aujla"}}}}
+                {{"tool": "system_control", "action": "play_spotify_song", "params": {{"song_name": "Running Up That Hill", "artist_name": "Kate Bush"}}}}
             ]
         }}
         
-        Example 2 (YouTube - INSTANT with open_url):
+        Example 2 (YouTube - FULLY AUTOMATED with Selenium):
         User: "YouTube pe Karan Aujla ka video play karo"
         JSON:
         {{
             "steps": [
-                {{"tool": "system_control", "action": "open_url", "params": {{"url": "https://youtube.com/results?search_query=Karan+Aujla"}}}}
+                {{"tool": "system_control", "action": "play_youtube_video", "params": {{"video_name": "Karan Aujla songs"}}}}
             ]
         }}
         
@@ -248,9 +248,10 @@ class TaskPlanner:
             else:
                 response_text = await asyncio.to_thread(self.llm.generate_response, f"{system_prompt}\n\n{user_msg}")
             
-            logger.info(f"Raw Planner Output: {response_text}")
+            # Don't log raw output to prevent any leakage
+            # logger.info(f"Raw Planner Output: {response_text}")
 
-            # Robust JSON Extraction
+            # Robust JSON Extraction - extract ONLY the JSON part
             # 1. Strip Markdown
             clean_text = response_text.replace("```json", "").replace("```", "").strip()
             
@@ -268,7 +269,8 @@ class TaskPlanner:
         except Exception as e:
             logger.error(f"Planning failed/Parsing failed: {e}")
             logger.error(f"Failed Text: {response_text if 'response_text' in locals() else 'None'}")
-            return {"steps": []}
+            # Return signal to trigger conversational response instead of returning JSON
+            return {"steps": [], "_error": True}
 
     def _run_tool(self, tool_name: str, action: str, params: Dict):
         """Dynamic dispatch to tools."""

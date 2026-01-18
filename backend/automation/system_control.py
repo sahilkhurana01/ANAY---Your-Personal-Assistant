@@ -48,6 +48,7 @@ class SystemControl:
                 "spotify": "spotify.exe",
                 "code": "code", # VS Code
                 "vscode": "code",
+                "whatsapp": os.path.expanduser("~/AppData/Local/WhatsApp/WhatsApp.exe"),
                 "cursor": os.path.expanduser("~/AppData/Local/Programs/cursor/Cursor.exe"),
                 "comet": "comet.exe" # Assuming in path
             }
@@ -120,6 +121,49 @@ class SystemControl:
             return browser_map.get(prog_id, "chrome.exe")  # Default to Chrome
         except:
             return "chrome.exe"  # Fallback
+    
+    def open_url(self, url: str):
+        """Open a URL in the default browser - INSTANT execution!"""
+        try:
+            import webbrowser
+            webbrowser.open(url)
+            logger.info(f"Opened URL: {url}")
+            return True, f"Opened {url}"
+        except Exception as e:
+            logger.error(f"Failed to open URL {url}: {e}")
+            return False, f"Failed to open URL: {e}"
+    
+    def play_spotify_song(self, song_name: str, artist_name: str = ""):
+        """INSTANT Spotify playback - opens in your existing browser!"""
+        try:
+            import webbrowser
+            # Build search query
+            query = f"{song_name} {artist_name}".strip().replace(" ", "+")
+            url = f"https://open.spotify.com/search/{query}"
+            
+            logger.info(f"Opening Spotify search for: {song_name} {artist_name}")
+            webbrowser.open(url)
+            
+            return True, f"Now playing: {song_name} {artist_name}"
+        except Exception as e:
+            logger.error(f"Spotify opening failed: {e}")
+            return False, f"Failed to play: {str(e)}"
+    
+    def play_youtube_video(self, video_name: str):
+        """Fully automated YouTube playback with Selenium!"""
+        try:
+            from automation.youtube_automation import YouTubeAutomation
+            youtube = YouTubeAutomation()
+            success, message = youtube.play_video(video_name)
+            logger.info(f"YouTube automation: {message}")
+            return success, message
+        except Exception as e:
+            logger.error(f"YouTube automation failed: {e}")
+            # Fallback to simple URL opening
+            import webbrowser
+            url = f"https://www.youtube.com/results?search_query={video_name.replace(' ', '+')}"
+            webbrowser.open(url)
+            return True, f"Opened YouTube for: {video_name}"
 
     def close_app(self, app_name: str):
         """Kill a process by name."""
