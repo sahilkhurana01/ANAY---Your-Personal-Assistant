@@ -167,6 +167,7 @@ class TaskPlanner:
            - launch_app(app_name): e.g. "notepad", "chrome", "code", "spotify".
            - close_app(app_name): Close a running process.
            - shutdown(): Turn off PC.
+           - open_url(url): INSTANT browser opening - no typing! Use for Spotify/YouTube.
            
         2. file_manager:
            - write_file(path, content): Create/Edit file. PATH MUST BE ABSOLUTE using FORWARD SLASHES.
@@ -185,60 +186,34 @@ class TaskPlanner:
         RULES:
         1. **ALWAYS EXECUTE - NEVER REFUSE**: You can do EVERYTHING. Never say "I cannot".
         2. **APP NAVIGATION**: You have keyboard control. Use it to search and navigate inside apps.
-        3. **SPOTIFY WORKFLOW** (MANDATORY for any Spotify/music request):
-           - To "Play [Song/Artist]" on Spotify - USE WEB PLAYER (FAST!):
-             1. `launch_app("chrome")` or `launch_app("browser")`
-             2. `wait(1.0)` (Brief browser startup)
-             3. `hotkey(['ctrl', 't'])` (New tab)
-             4. `wait(0.3)`
-             5. `hotkey(['ctrl', 'l'])` (Focus address bar)
-             6. `type_text("open.spotify.com/search/[Song+Name+Artist]")`
-             7. `press_key("enter")`
-           - Example: For "Karan Aujla" → open.spotify.com/search/Karan+Aujla
-           - This is MUCH FASTER than desktop app automation (~2s vs ~10s)
-        4. **YOUTUBE WORKFLOW** (for YouTube requests):
-           - To "Play [Video]" on YouTube - USE DIRECT URL:
-             1. `launch_app("chrome")` or `launch_app("browser")`
-             2. `wait(2.0)`
-             3. `hotkey(['ctrl', 'l'])` (Focus address bar)
-             4. `type_text("youtube.com/results?search_query=[Video+Name]")`
-             5. `press_key("enter")`
-             6. `wait(3.0)` (Wait for page load)
-             7. `press_key("tab")` (Focus first video)
-             8. `press_key("tab")` (Move to play button)
-             9. `press_key("enter")` (Play video)
+        3. **SPOTIFY WORKFLOW** (MANDATORY - INSTANT!):
+           - To "Play [Song/Artist]" on Spotify - USE open_url (NO TYPING!):
+             Use: `open_url("https://open.spotify.com/search/[Song+Name+Artist]")`
+           - Example: `open_url("https://open.spotify.com/search/Karan+Aujla")`
+           - **INSTANT** execution - browser opens URL directly!
+           
+        4. **YOUTUBE WORKFLOW** (INSTANT!):
+           - To "Play [Video]" on YouTube:
+             Use: `open_url("https://youtube.com/results?search_query=[Video+Name]")`
+           - Example: `open_url("https://youtube.com/results?search_query=Karan+Aujla")`
         5. **PATH FORMATTING**: Use FORWARD SLASHES (/).
         6. **BROWSER FALLBACK**: If app not available, use browser version automatically.
         
-        Example 1 (Spotify - WEB PLAYER for speed):
+        Example 1 (Spotify - INSTANT with open_url):
         User: "Spotify pe Karan Aujla bajao" or "Play Karan Aujla on Spotify"
         JSON:
         {{
             "steps": [
-                {{"tool": "system_control", "action": "launch_app", "params": {{"app_name": "chrome"}}}},
-                {{"tool": "input_controller", "action": "wait", "params": {{"seconds": 1.0}}}},
-                {{"tool": "input_controller", "action": "hotkey", "params": {{"keys": ["ctrl", "t"]}}}},
-                {{"tool": "input_controller", "action": "wait", "params": {{"seconds": 0.3}}}},
-                {{"tool": "input_controller", "action": "hotkey", "params": {{"keys": ["ctrl", "l"]}}}},
-                {{"tool": "input_controller", "action": "type_text", "params": {{"text": "open.spotify.com/search/Karan+Aujla"}}}},
-                {{"tool": "input_controller", "action": "press_key", "params": {{"key": "enter"}}}}
+                {{"tool": "system_control", "action": "open_url", "params": {{"url": "https://open.spotify.com/search/Karan+Aujla"}}}}
             ]
         }}
         
-        Example 2 (YouTube - use direct URL):
+        Example 2 (YouTube - INSTANT with open_url):
         User: "YouTube pe Karan Aujla ka video play karo"
         JSON:
         {{
             "steps": [
-                {{"tool": "system_control", "action": "launch_app", "params": {{"app_name": "chrome"}}}},
-                {{"tool": "input_controller", "action": "wait", "params": {{"seconds": 2.0}}}},
-                {{"tool": "input_controller", "action": "hotkey", "params": {{"keys": ["ctrl", "l"]}}}},
-                {{"tool": "input_controller", "action": "type_text", "params": {{"text": "youtube.com/results?search_query=Karan+Aujla"}}}},
-                {{"tool": "input_controller", "action": "press_key", "params": {{"key": "enter"}}}},
-                {{"tool": "input_controller", "action": "wait", "params": {{"seconds": 3.0}}}},
-                {{"tool": "input_controller", "action": "press_key", "params": {{"key": "tab"}}}},
-                {{"tool": "input_controller", "action": "press_key", "params": {{"key": "tab"}}}},
-                {{"tool": "input_controller", "action": "press_key", "params": {{"key": "enter"}}}}
+                {{"tool": "system_control", "action": "open_url", "params": {{"url": "https://youtube.com/results?search_query=Karan+Aujla"}}}}
             ]
         }}
         
