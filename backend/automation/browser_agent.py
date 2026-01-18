@@ -113,3 +113,40 @@ class BrowserAgent:
         if self.driver:
             self.driver.quit()
             self.driver = None
+    
+    def open_youtube_and_play(self, query: str):
+        """Open YouTube and play a video using keyboard automation."""
+        try:
+            # Open YouTube
+            import webbrowser
+            webbrowser.open(f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}")
+            
+            # Note: Actual playback requires keyboard automation from input_controller
+            # This is handled by the task planner workflow
+            return True, f"Opened YouTube search for: {query}"
+        except Exception as e:
+            logger.error(f"YouTube automation failed: {e}")
+            return False, str(e)
+    
+    def open_spotify_web_and_play(self, query: str):
+        """Open Spotify web player and search for music."""
+        try:
+            # Open Spotify web player
+            import webbrowser
+            webbrowser.open(f"https://open.spotify.com/search/{query.replace(' ', '%20')}")
+            
+            return True, f"Opened Spotify web player for: {query}"
+        except Exception as e:
+            logger.error(f"Spotify web automation failed: {e}")
+            return False, str(e)
+    
+    def get_default_browser(self):
+        """Detect the default browser on the system."""
+        try:
+            import webbrowser
+            # Get the default browser
+            browser = webbrowser.get()
+            browser_name = browser.name if hasattr(browser, 'name') else "default"
+            return browser_name
+        except:
+            return "chrome"  # Fallback to chrome

@@ -63,14 +63,26 @@ class SpeechToText:
             content_type = content_types.get(suffix, 'audio/wav')
             
             # Build URL with query parameters
-            params = {
-                'model': 'nova-2',
-                'language': language,
-                'smart_format': 'true',
-                'punctuate': 'true',
-                'encoding': 'linear16' if suffix == '.wav' else None,
-                'sample_rate': 16000
-            }
+            # For Hinglish support, use explicit language list for better detection
+            if language == "hi,en" or language == "hinglish":
+                # Hinglish mode: specify both Hindi and English explicitly
+                params = {
+                    'model': 'nova-2',
+                    'language': 'hi',  # Primary language Hindi
+                    'smart_format': 'true',
+                    'punctuate': 'true',
+                    'encoding': 'linear16' if suffix == '.wav' else None,
+                    'sample_rate': 16000
+                }
+            else:
+                params = {
+                    'model': 'nova-2',
+                    'language': language,
+                    'smart_format': 'true',
+                    'punctuate': 'true',
+                    'encoding': 'linear16' if suffix == '.wav' else None,
+                    'sample_rate': 16000
+                }
             # Remove None values
             params = {k: v for k, v in params.items() if v is not None}
             

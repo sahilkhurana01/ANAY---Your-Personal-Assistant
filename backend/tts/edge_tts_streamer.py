@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 class EdgeTTSStreamer:
     """Handles real-time text-to-speech using Edge TTS (Free & Unlimited)."""
     
-    def __init__(self, voice: str = "en-IN-NeerjaNeural"):
+    def __init__(self, voice: str = "hi-IN-SwaraNeural"):
         """
         Initialize Edge TTS streamer.
         
         Args:
-            voice: Voice ID to use (default is Indian Male)
+            voice: Voice ID to use (default is Indian Hindi Female for Hinglish support)
+                   Options: hi-IN-SwaraNeural (Female), hi-IN-MadhurNeural (Male)
         """
         self.voice = voice
         logger.info(f"EdgeTTS Streamer initialized (Voice: {self.voice})")

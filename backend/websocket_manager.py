@@ -147,7 +147,7 @@ class WebSocketManager:
             if fresh_eleven_key and len(fresh_eleven_key) > 10 and not fresh_eleven_key.startswith("sk_placeholder"):
                 logger.info(f"Attempting to initialize ElevenLabs with Voice ID: {fresh_voice_id}")
                 tts_streamer = ElevenLabsStreamer(fresh_eleven_key, voice_id=fresh_voice_id)
-                logger.info(f"✅ SUCCESSFULLY initialized ElevenLabs premium voice ({fresh_voice_id})")
+                logger.info(f"[OK] SUCCESSFULLY initialized ElevenLabs premium voice ({fresh_voice_id})")
                 await websocket.send_json({"type": "status_info", "engine": "ElevenLabs Premium"})
             else:
                 logger.warning("ElevenLabs key missing or invalid. Falling back to EdgeTTS.")
@@ -156,7 +156,7 @@ class WebSocketManager:
                 logger.info("Using EdgeTTS (Free Fallback)")
                 await websocket.send_json({"type": "status_info", "engine": "EdgeTTS (Free)"})
         except Exception as e:
-            logger.error(f"❌ ElevenLabs init failed: {e}. Falling back to EdgeTTS.")
+            logger.error(f"[ERROR] ElevenLabs init failed: {e}. Falling back to EdgeTTS.")
             tts_streamer = EdgeTTSStreamer()
             tts_engine = "EdgeTTS"
             await websocket.send_json({"type": "status_info", "engine": "EdgeTTS (Emergency Fallback)"})
@@ -185,15 +185,15 @@ class WebSocketManager:
                 await websocket.send_json({"type": "final_transcript", "payload": transcript})
                 
                 logger.info("\n" + "="*50)
-                logger.info("🎤 Listening...")
+                logger.info("[MIC] Listening...")
                 logger.info("Done listening")
                 
                 # Transcribing
                 transcribe_start = time.time()
-                logger.info("📝 Transcribing audio...")
+                logger.info("[TRANSCRIBE] Transcribing audio...")
                 # (Transcription happens in callback)
                 transcribe_time = time.time() - transcribe_start
-                logger.info(f"✅ Finished transcribing in {transcribe_time:.2f} seconds.")
+                logger.info(f"[OK] Finished transcribing in {transcribe_time:.2f} seconds.")
                 
                 # Initialize Task Planner (The "Brain")
                 try:
@@ -206,7 +206,7 @@ class WebSocketManager:
 
                 # Generate response
                 response_start = time.time()
-                logger.info(f"🤖 Planning & Executing for: '{transcript[:50]}...'")
+                logger.info(f"[AI] Planning & Executing for: '{transcript[:50]}...'")
                 
                 # 1. ACTION FIRST: Try to Execute Plan
                 is_executed = False
@@ -218,7 +218,7 @@ class WebSocketManager:
                         if plan_result != "NO_ACTION_REQUIRED":
                             ai_response = plan_result
                             is_executed = True
-                            logger.info(f"⚡ Executed Plan: {ai_response}")
+                            logger.info(f"[EXEC] Executed Plan: {ai_response}")
                     except Exception as e:
                          logger.error(f"Plan Execution Failed: {e}")
                 
@@ -227,7 +227,7 @@ class WebSocketManager:
                     ai_response = await asyncio.to_thread(active_llm.generate_response, transcript)
                                 
                 response_time = time.time() - response_start
-                logger.info(f"✅ Finished generating response in {response_time:.2f} seconds.")
+                logger.info(f"[OK] Finished generating response in {response_time:.2f} seconds.")
                 
                 # Send AI response (using frontend-expected format)
                 await websocket.send_json({
@@ -239,7 +239,7 @@ class WebSocketManager:
                 if tts_streamer:
                     try:
                         audio_start = time.time()
-                        logger.info("🔊 Generating audio...")
+                        logger.info("[AUDIO] Generating audio...")
                         async for audio_chunk in tts_streamer.stream_text(ai_response):
                             audio_base64 = base64.b64encode(audio_chunk).decode('utf-8')
                             # Essential: Send level for orb animation
@@ -251,9 +251,9 @@ class WebSocketManager:
                                 "payload": audio_base64
                             })
                         audio_time = time.time() - audio_start
-                        logger.info(f"✅ Finished generating audio in {audio_time:.2f} seconds.")
+                        logger.info(f"[OK] Finished generating audio in {audio_time:.2f} seconds.")
                         
-                        logger.info("🗣️  Speaking...")
+                        logger.info("[SPEAK] Speaking...")
                     except Exception as e:
                         logger.error(f"TTS streaming failed: {e}")
                 
@@ -313,16 +313,16 @@ class WebSocketManager:
                 from audio_converter import convert_webm_to_wav
                 temp_wav_path = await asyncio.to_thread(convert_webm_to_wav, temp_audio.name)
                 
-                logger.info(f"📝 Transcribing audio from {temp_wav_path}...")
+                logger.info(f"[TRANSCRIBE] Transcribing audio from {temp_wav_path}...")
                 transcribe_start = time.time()
                 from speech_to_text import SpeechToText
                 stt = SpeechToText()
-                # Use English
-                transcript = await asyncio.to_thread(stt.transcribe, temp_wav_path, language="en")
+                # Use Hinglish (Hindi + English mixed) for better understanding
+                transcript = await asyncio.to_thread(stt.transcribe, temp_wav_path, language="hi,en")
                 transcribe_time = time.time() - transcribe_start
                 
                 if transcript and transcript.strip():
-                    logger.info(f"✅ Transcription complete ({transcribe_time:.2f}s): {transcript}")
+                    logger.info(f"[OK] Transcription complete ({transcribe_time:.2f}s): {transcript}")
                     
                     # Send status: processing
                     await websocket.send_json({"type": "status", "status": "processing"})
@@ -336,69 +336,92 @@ class WebSocketManager:
                         "timestamp": time.time(),
                         "role": "user"
                     })
-                    logger.info("✅ Sent user_message")
+                    logger.info("[OK] Sent user_message")
                     
-                    # Generate AI response
-                    response_start = time.time()
-                    logger.info(f"🤖 Generating AI response...")
+                    # CRITICAL: Try to execute task FIRST (Action-First AI)
+                    planner = None
+                    task_executed = False
+                    task_result = ""
+                    
                     try:
-                        ai_response = await asyncio.to_thread(active_llm.generate_response, transcript)
-                        response_time = time.time() - response_start
-                        logger.info(f"✅ Response generated ({response_time:.2f}s)")
+                        from automation.task_planner import TaskPlanner
+                        planner = TaskPlanner(llm_client=active_llm)
+                        logger.info("[EXEC] Attempting to execute task...")
                         
-                        # Send AI response to chat (only once with consistent format)
-                        logger.info(f"📤 Sending AI response to frontend: {ai_response[:50]}...")
+                        # execute_plan is async, so await it directly (not with to_thread)
+                        task_result = await planner.execute_plan(transcript)
                         
-                        # Send response
-                        await websocket.send_json({
-                            "type": "response",
-                            "content": ai_response,
-                            "message": ai_response,
-                            "text": ai_response,
-                            "timestamp": time.time(),
-                            "role": "assistant"
-                        })
-                        logger.info("✅ Sent response")
-                        
-                        # Send to TTS if available
-                        if tts_streamer:
-                            try:
-                                audio_start = time.time()
-                                logger.info("🔊 Generating speech...")
-                                await websocket.send_json({"type": "status", "status": "speaking"})
-                                
-                                full_audio_bytes = []
-                                async for audio_chunk in tts_streamer.stream_text(ai_response):
-                                    full_audio_bytes.append(audio_chunk)
-                                    # Still send levels for animation while synthesizing
-                                    level = calculate_amplitude(base64.b64encode(audio_chunk).decode('utf-8'))
-                                    await websocket.send_json({"type": "audio_level", "payload": level})
-                                
-                                if full_audio_bytes:
-                                    final_audio = b"".join(full_audio_bytes)
-                                    audio_base64 = base64.b64encode(final_audio).decode('utf-8')
-                                    await websocket.send_json({
-                                        "type": "tts_audio",
-                                        "payload": audio_base64,
-                                        "audio": audio_base64
-                                    })
-                                
-                                audio_time = time.time() - audio_start
-                                logger.info(f"✅ Speech generated ({audio_time:.2f}s)")
-                            except Exception as e:
-                                logger.error(f"TTS failed: {e}")
-                                error_detail = str(e)
-                                await websocket.send_json({
-                                    "type": "error",
-                                    "message": f"ElevenLabs limit reached or error: {error_detail}. Switch key in .env!"
-                                })
+                        if task_result and task_result != "NO_ACTION_REQUIRED":
+                            task_executed = True
+                            logger.info(f"[OK] Task executed: {task_result}")
+                            ai_response = task_result  # Use task result as response
+                        else:
+                            logger.info("[INFO] No action required, generating conversational response")
+                            task_executed = False
                     except Exception as e:
-                        logger.error(f"AI response generation failed: {e}")
-                        error_msg = "I'm sorry, I'm having trouble processing that right now. Could you please repeat that?"
-                        await websocket.send_json({
-                            "type": "response",
-                            "content": error_msg
-                        })
+                        logger.error(f"Task execution failed: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        task_executed = False
+                    
+                    # Generate AI response only if no task was executed
+                    if not task_executed:
+                        response_start = time.time()
+                        logger.info(f"[AI] Generating AI response...")
+                        try:
+                            ai_response = await asyncio.to_thread(active_llm.generate_response, transcript)
+                            response_time = time.time() - response_start
+                            logger.info(f"[OK] Response generated ({response_time:.2f}s)")
+                        except Exception as e:
+                            logger.error(f"AI response generation failed: {e}")
+                            ai_response = "I'm sorry, I'm having trouble processing that right now."
+                    
+                    # Send AI response to chat (only once with consistent format)
+                    logger.info(f"[MSG] Sending AI response to frontend: {ai_response[:50]}...")
+                    
+                    # Send response
+                    await websocket.send_json({
+                        "type": "response",
+                        "content": ai_response,
+                        "message": ai_response,
+                        "text": ai_response,
+                        "timestamp": time.time(),
+                        "role": "assistant"
+                    })
+                    logger.info("[OK] Sent response")
+                    
+                    # Send to TTS if available
+                    if tts_streamer:
+                        try:
+                            audio_start = time.time()
+                            logger.info("[AUDIO] Generating speech...")
+                            await websocket.send_json({"type": "status", "status": "speaking"})
+                            
+                            full_audio_bytes = []
+                            async for audio_chunk in tts_streamer.stream_text(ai_response):
+                                full_audio_bytes.append(audio_chunk)
+                                # Still send levels for animation while synthesizing
+                                level = calculate_amplitude(base64.b64encode(audio_chunk).decode('utf-8'))
+                                await websocket.send_json({"type": "audio_level", "payload": level})
+                            
+                            if full_audio_bytes:
+                                final_audio = b"".join(full_audio_bytes)
+                                audio_base64 = base64.b64encode(final_audio).decode('utf-8')
+                                await websocket.send_json({
+                                    "type": "tts_audio",
+                                    "payload": audio_base64,
+                                    "audio": audio_base64
+                                })
+                            
+                            audio_time = time.time() - audio_start
+                            logger.info(f"[OK] Speech generated ({audio_time:.2f}s)")
+                        except Exception as e:
+                            logger.error(f"TTS failed: {e}")
+                            error_detail = str(e)
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": f"ElevenLabs limit reached or error: {error_detail}. Switch key in .env!"
+                            })
                     
                     # Send status update
                     await websocket.send_json({"type": "status", "status": "idle"})
@@ -455,7 +478,7 @@ class WebSocketManager:
                 content = message.get("content")  # For simple text messages
                 
                 # DEBUG: Log all incoming messages
-                logger.info(f"📨 Received message type: {msg_type}")
+                logger.info(f"[MSG] Received message type: {msg_type}")
                 
                 if msg_type == "audio_chunk":
                     # Collect audio chunks and process with REST API (streaming STT disabled)
@@ -466,7 +489,7 @@ class WebSocketManager:
                         self.audio_buffer[ws_id] = []
                         self.buffer_start_time[ws_id] = time.time()
                         self.is_recording[ws_id] = True
-                        logger.info("🎤 Listening...")
+                        logger.info("[MIC] Listening...")
                     
                     # Decode and store audio chunk
                     audio_bytes = base64.b64decode(payload)
@@ -476,7 +499,7 @@ class WebSocketManager:
                         # Just take the beginning of the first chunk which contains EBML/WebM headers
                         # Typically the first 1-2KB is enough, but taking the whole first chunk is safer.
                         self.session_headers[ws_id] = audio_bytes
-                        logger.info("✅ Captured WebM session header")
+                        logger.info("[OK] Captured WebM session header")
                     
                     self.audio_buffer[ws_id].append(audio_bytes)
                     

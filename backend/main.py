@@ -21,15 +21,31 @@ from websocket_manager import WebSocketManager
 # Load Environment Variables
 load_dotenv()
 
-# Configure Logging
+# Set UTF-8 encoding for Windows console to prevent Unicode errors
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# Configure Logging with UTF-8 encoding
+import sys
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("anay_backend.log")
+        logging.StreamHandler(stream=sys.stdout),  # Use stdout with UTF-8
+        logging.FileHandler("anay_backend.log", encoding='utf-8')
     ]
 )
+
+# Force UTF-8 encoding on stdout/stderr for Windows
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        # Python < 3.7
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+        sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
@@ -58,25 +74,25 @@ async def startup_event():
     
     # 1. Check Execution Context
     if os.path.exists("execution_context.json"):
-        logger.info("✅ Persistent Memory Found")
+        logger.info("[OK] Persistent Memory Found")
     else:
-        logger.warning("⚠️ No Context Found - Creating new memory...")
+        logger.warning("[WARNING] No Context Found - Creating new memory...")
         with open("execution_context.json", "w") as f:
             f.write("{}")
 
     # 2. Check Groq Key (CRITICAL)
     groq_key = os.getenv("GROQ_API_KEY")
     if groq_key:
-        logger.info("✅ Groq API Key Detected - High Speed Mode Active")
+        logger.info("[OK] Groq API Key Detected - High Speed Mode Active")
     else:
-        logger.error("❌ GROQ_API_KEY MISSING! ANAY requires Groq for fast planning.")
+        logger.error("[ERROR] GROQ_API_KEY MISSING! ANAY requires Groq for fast planning.")
 
     # 3. Start System Metrics Broadcast
     import asyncio
     asyncio.create_task(manager.broadcast_metrics())
-    logger.info("✅ System Metrics Broadcast Active")
+    logger.info("[OK] System Metrics Broadcast Active")
 
-    logger.info("🚀 ANAY Agent Ready to Serve.")
+    logger.info("[READY] ANAY Agent Ready to Serve.")
 
 @app.get("/")
 async def root():

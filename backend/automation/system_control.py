@@ -42,6 +42,7 @@ class SystemControl:
                 "calculator": "calc.exe",
                 "notepad": "notepad.exe",
                 "chrome": "chrome.exe",
+                "browser": self._get_default_browser(),  # Dynamic browser detection
                 "explorer": "explorer.exe",
                 "cmd": "cmd.exe",
                 "spotify": "spotify.exe",
@@ -65,8 +66,31 @@ class SystemControl:
                 else:
                     cmd = "Cursor.exe" # Hope it's in path
             
+            # Special handling for Spotify - try multiple paths
+            if app_name.lower() == "spotify":
+                spotify_paths = [
+                    os.path.expanduser("~/AppData/Roaming/Spotify/Spotify.exe"),
+                    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\Spotify\\Spotify.exe",
+                    "spotify.exe"  # Try from PATH
+                ]
+                spotify_found = False
+                for path in spotify_paths:
+                    expanded_path = os.path.expandvars(path)
+                    if os.path.exists(expanded_path):
+                        cmd = expanded_path
+                        spotify_found = True
+                        logger.info(f"Found Spotify at: {expanded_path}")
+                        break
+                
+                if not spotify_found:
+                    logger.warning("Spotify not found in common locations, trying spotify.exe from PATH")
+                    cmd = "spotify.exe"
+            
+            logger.info(f"Attempting to launch: {cmd}")
+            
             if self.os_type == "Windows":
-                 subprocess.Popen(cmd, shell=True)
+                 result = subprocess.Popen(cmd, shell=True)
+                 logger.info(f"Launched process PID: {result.pid}")
             elif self.os_type == "Darwin": # MacOS
                  subprocess.Popen(["open", "-a", app_name])
             else:
@@ -75,7 +99,27 @@ class SystemControl:
             self.ctx_mgr.update_context({"last_opened_app": app_name})
             return True, f"Launched {app_name}"
         except Exception as e:
+            logger.error(f"Failed to launch {app_name}: {e}")
             return False, f"Failed to launch: {e}"
+    
+    def _get_default_browser(self):
+        """Get the default browser executable name."""
+        try:
+            import winreg
+            # Read default browser from Windows registry
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
+                prog_id = winreg.QueryValueEx(key, "ProgId")[0]
+                
+            # Map ProgId to executable
+            browser_map = {
+                "ChromeHTML": "chrome.exe",
+                "BraveHTML": "brave.exe",
+                "FirefoxURL": "firefox.exe",
+                "MSEdgeHTM": "msedge.exe"
+            }
+            return browser_map.get(prog_id, "chrome.exe")  # Default to Chrome
+        except:
+            return "chrome.exe"  # Fallback
 
     def close_app(self, app_name: str):
         """Kill a process by name."""
